@@ -280,6 +280,34 @@ package breezedb.schemas
 
 
 		/**
+		 * Loads the database schema
+         * @param {Object}      [options]                              See as3's SQLConnection.loadSchema() docs for more on these options.
+         * @param {Class}       [options.type=null]                    The type of schema to load.
+         * @param {String}      [options.name=null]                    The name of a schema resource to load, e.g. a table name.
+         * @param {Boolean}     [options.includeColumnSchema=true]     Get table (and view) column schemas too?
+         *
+		 * @param callback Function with the following signature:
+		 * <listing version="3.0">
+		 * function callback(error:Error, schema:SQLSchemaResult):void { };
+		 * </listing>
+		 *
+		 * @return <code>BreezeQueryReference</code> object that allows cancelling the request callback.
+		 */
+		public function loadSchema(options:Object, callback:Function):BreezeQueryReference
+		{
+
+			if(callback == null)
+			{
+				throw new ArgumentError("Parameter callback cannot be null.");
+			}
+
+			_queryString = "";
+			_queryReference = new BreezeRawQuery(_db).breezedb_internal::loadSchema(options, callback);
+			return _queryReference;
+		}
+
+
+		/**
 		 * Loads the table schema to see if a column with the given name exists in a table with the given name.
 		 *
 		 * @param tableName The name of the table where to look for the column.
@@ -317,6 +345,33 @@ package breezedb.schemas
 			_queryReference = new BreezeRawQuery(_db).breezedb_internal::loadColumnSchema(tableName, columnName, callback);
 			return _queryReference;
 		}
+
+
+
+
+		/**
+		 * Compact the database (aka SQL command "VACUUM").
+		 *
+		 * @param callback Function with the following signature:
+		 * <listing version="3.0">
+		 * function callback(error:Error):void { };
+		 * </listing>
+		 *
+		 * @return <code>BreezeQueryReference</code> object that allows cancelling the request callback.
+		 */
+		public function compact( callback:Function):BreezeQueryReference
+		{
+
+			if(callback == null)
+			{
+				throw new ArgumentError("Parameter callback cannot be null.");
+			}
+
+			_queryString = "";
+			_queryReference = new BreezeRawQuery(_db).breezedb_internal::compact(callback);
+			return _queryReference;
+		}
+
 
 
 		/**

@@ -344,7 +344,66 @@ package breezedb.queries
 			}
 		}
 		
-		
+   		/**
+         * @param { Function(Error) }  callback
+		 * @private
+		 */
+		breezedb_internal function compact(callback:Function):BreezeQueryReference
+		{
+			if(!_db.isSetup)
+			{
+				Callback.call(callback, [new Error("Database connection is not active."), null]);
+				return null;
+			}
+
+			GarbagePrevention.instance.add(this);
+
+            _callback = callback;
+			_db.connection.addEventListener(SQLEvent.COMPACT, onCompactSuccess);
+			_db.connection.addEventListener(SQLErrorEvent.ERROR, onCompactError);
+            _db.connection.compact();
+			return new BreezeQueryReference(this);
+		}
+
+
+
+   		/**
+         * @param {Object}      [options]                              See as3's SQLConnection.loadSchema() docs for more on these options.
+         * @param {Class}       [options.type=null]                    The type of schema to load.
+         * @param {String}      [options.name=null]                    The name of a schema resource to load, e.g. a table name.
+         * @param {Boolean}     [options.includeColumnSchema=true]     Get table (and view) column schemas too?
+         * @param {Function(Error, SQLSchemaResult) }  callback
+		 * @private
+		 */
+		breezedb_internal function loadSchema(options:Object, callback:Function):BreezeQueryReference
+		{
+            if (options==null)
+            {
+                options = {};
+            }
+
+            if (options.includeColumnSchema==null)
+            {
+                options.includeColumnSchema = true;
+            }
+
+
+			if(!_db.isSetup)
+			{
+				Callback.call(callback, [new Error("Database connection is not active."), null]);
+				return null;
+			}
+
+			GarbagePrevention.instance.add(this);
+
+            _callback = callback;
+			_db.connection.addEventListener(SQLEvent.SCHEMA, onSchemaLoadSuccess);
+			_db.connection.addEventListener(SQLErrorEvent.ERROR, onSchemaLoadError);
+            _db.connection.loadSchema(options.type, options.name, "main", options.includeColumnSchema);
+			return new BreezeQueryReference(this);
+		}
+
+
 		/**
 		 * @private
 		 */
@@ -360,10 +419,10 @@ package breezedb.queries
 
 			_tableName = tableName;
 
-			_callback = callback;
+            _callback = callback;
 			_db.connection.addEventListener(SQLEvent.SCHEMA, onTableSchemaLoadSuccess);
 			_db.connection.addEventListener(SQLErrorEvent.ERROR, onTableSchemaLoadError);
-			_db.connection.loadSchema(SQLTableSchema, tableName, "main", false);
+            _db.connection.loadSchema(SQLTableSchema, tableName, "main", false);
 			return new BreezeQueryReference(this);
 		}
 
@@ -398,6 +457,49 @@ package breezedb.queries
 			_isCancelled = true;
 			_callback = null;
 		}
+
+
+		private function onCompactSuccess(event:SQLEvent):void
+		{
+			_db.connection.removeEventListener(SQLEvent.COMPACT, onCompactSuccess);
+			_db.connection.removeEventListener(SQLErrorEvent.ERROR, onCompactError);
+
+			dispatchQueryEvent(BreezeQueryEvent.SUCCESS, null, null, "Compact succeeded");
+			finishQuery([null]);
+		}
+
+
+		private function onCompactError(event:SQLErrorEvent):void
+		{
+			_db.connection.removeEventListener(SQLEvent.SCHEMA, onCompactSuccess);
+			_db.connection.removeEventListener(SQLErrorEvent.ERROR, onCompactError);
+
+			dispatchQueryEvent(BreezeQueryEvent.ERROR, event.error, null, "Compact failed");
+			finishQuery([event.error]);
+		}
+
+
+
+		private function onSchemaLoadSuccess(event:SQLEvent):void
+		{
+			_db.connection.removeEventListener(SQLEvent.SCHEMA, onSchemaLoadSuccess);
+			_db.connection.removeEventListener(SQLErrorEvent.ERROR, onSchemaLoadError);
+
+			var schema:SQLSchemaResult = _db.connection.getSchemaResult();
+			dispatchQueryEvent(BreezeQueryEvent.SUCCESS, null, null, "Schema loaded");
+			finishQuery([null, schema]);
+		}
+
+
+		private function onSchemaLoadError(event:SQLErrorEvent):void
+		{
+			_db.connection.removeEventListener(SQLEvent.SCHEMA, onSchemaLoadSuccess);
+			_db.connection.removeEventListener(SQLErrorEvent.ERROR, onSchemaLoadError);
+
+			dispatchQueryEvent(BreezeQueryEvent.ERROR, event.error, null, "Schema load failed");
+			finishQuery([event.error, null]);
+		}
+
 
 
 		private function onTableSchemaLoadSuccess(event:SQLEvent):void
